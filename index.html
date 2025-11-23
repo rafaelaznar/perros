@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Perrolandia</title>
+        <style>
+            :root{
+                --bg1: #FFDEE9;
+                --bg2: #B5FFFC;
+                --accent1: #7b61ff;
+                --accent2: #ff61c8;
+                --accent3: #61ffd3;
+                --card-bg: rgba(255,255,255,0.9);
+                --muted: #586275;
+            }
+            *{box-sizing:border-box}
+            html,body{height:100%;}
+            body{
+                margin:0;
+                font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+                background: linear-gradient(135deg,var(--bg1) 0%, var(--bg2) 100%);
+                display:flex;align-items:center;justify-content:center;padding:24px;color:#222;
+            }
+            .container{
+                width: min(820px, 96%);
+                background: var(--card-bg);
+                border-radius:16px;
+                padding:20px;
+                box-shadow: 0 10px 30px rgba(16,24,40,0.12);
+                text-align:center;
+            }
+            .title{font-size:clamp(1.4rem,3.6vw,2rem);margin:0 0 6px}
+            .subtitle{margin:0 0 18px;color:var(--muted)}
+            .card{background:linear-gradient(180deg,#fff,#f7fbff);padding:14px;border-radius:12px;display:flex;flex-direction:column;gap:12px;align-items:center}
+            .img-wrap{width:100%;max-height:62vh;display:flex;align-items:center;justify-content:center}
+            img#dogImage{width:100%;height:auto;max-height:62vh;object-fit:contain;border-radius:10px;display:block;transition:opacity .36s ease, transform .36s ease;opacity:0;transform:scale(.99)}
+            img#dogImage.visible{opacity:1;transform:none}
+            .info{font-weight:600;color:#223;min-height:1.2em}
+            .controls{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+            button{border:0;padding:12px 16px;border-radius:10px;font-weight:600;cursor:pointer;color:#fff}
+            button:active{transform:translateY(1px)}
+            .btn-primary{background:linear-gradient(90deg,var(--accent1),var(--accent2));box-shadow:0 8px 18px rgba(123,97,255,0.18)}
+            .btn-secondary{background:linear-gradient(90deg,var(--accent3),#61b3ff);color:#003}
+            button:disabled{opacity:.7;cursor:not-allowed}
+            .meta{margin-top:10px;font-size:0.9rem;color:var(--muted)}
+            a{color:inherit}
+            .thumbs{
+                width:100%;
+                display:flex;
+                gap:8px;
+                padding:8px 4px;
+                overflow-x:auto;
+                align-items:center;
+                margin-top:8px;
+            }
+            .thumbs::-webkit-scrollbar{height:8px}
+            .thumbs::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.12);border-radius:8px}
+            .thumb{
+                width:64px;height:64px;border-radius:8px;flex:0 0 auto;overflow:hidden;display:inline-grid;place-items:center;border:2px solid transparent;cursor:pointer;transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+            }
+            .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+            .thumb:hover{transform:translateY(-4px)}
+            .thumb.selected{border-color:var(--accent1);box-shadow:0 6px 18px rgba(123,97,255,0.12)}
+            @media (max-width:520px){
+                .controls{flex-direction:column}
+                button{width:100%}
+                .thumb{width:56px;height:56px}
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container" role="main">
+            <h1 class="title">Perrolandia</h1>
+            <p class="subtitle">Pulsa el botón para conocer un nuevo amigo peludo 🐶</p>
+
+            <div class="card" aria-live="polite">
+                <div class="img-wrap">
+                    <img id="dogImage" src="" alt="Perro aleatorio" hidden />
+                </div>
+                <div id="info" class="info"> </div>
+
+                <div class="controls">
+                    <button id="newBtn" class="btn-primary">Nuevo perrito</button>
+                    <button id="saveBtn" class="btn-secondary" disabled>Guardar imagen</button>
+                </div>
+
+                <div id="history" class="thumbs" aria-label="Historial de perritos" hidden></div>
+            </div>
+
+            <p class="meta">Imágenes desde <a href="https://dog.ceo" target="_blank" rel="noopener">dog.ceo</a></p>
+        </div>
+
+        <script>
+            const API = 'https://dog.ceo/api/breeds/image/random';
+            const newBtn = document.getElementById('newBtn');
+            const saveBtn = document.getElementById('saveBtn');
+            const imgEl = document.getElementById('dogImage');
+            const infoEl = document.getElementById('info');
+            const historyEl = document.getElementById('history');
+            let currentImageUrl = '';
+            const historyUrls = [];
+            const MAX_HISTORY = 12;
+
+            function setMainImage(url, addToHist = true){
+                if(!url) return;
+                currentImageUrl = url;
+                // start transition
+                imgEl.classList.remove('visible');
+                imgEl.hidden = false;
+                imgEl.src = url;
+                imgEl.alt = 'Perro - ' + prettyBreed(url);
+                infoEl.textContent = prettyBreed(url);
+                saveBtn.disabled = false;
+                if(addToHist) addToHistory(url);
+            }
+
+            async function fetchDog(){
+                newBtn.disabled = true;
+                newBtn.textContent = 'Cargando...';
+                infoEl.textContent = '';
+                try{
+                    const res = await fetch(API, {cache: 'no-store'});
+                    if(!res.ok) throw new Error('Error de red');
+                    const data = await res.json();
+                    if(!data || data.status !== 'success' || !data.message) throw new Error('Respuesta inesperada');
+                    setMainImage(data.message, true);
+                }catch(err){
+                    console.error(err);
+                    infoEl.textContent = 'No se pudo cargar el perrito. Intenta de nuevo.';
+                    imgEl.hidden = true;
+                    saveBtn.disabled = true;
+                }finally{
+                    newBtn.disabled = false;
+                    newBtn.textContent = 'Nuevo perrito';
+                }
+            }
+
+            imgEl.addEventListener('load', ()=>{
+                // small delay for nicer feel
+                requestAnimationFrame(()=>{
+                    imgEl.classList.add('visible');
+                });
+                // mark selected thumb
+                highlightSelectedThumb(currentImageUrl);
+            });
+
+            function addToHistory(url){
+                if(!url) return;
+                // avoid duplicates: move existing to front
+                const idx = historyUrls.indexOf(url);
+                if(idx !== -1){
+                    historyUrls.splice(idx,1);
+                }
+                historyUrls.unshift(url);
+                // keep limit
+                if(historyUrls.length > MAX_HISTORY) historyUrls.length = MAX_HISTORY;
+                renderHistory();
+            }
+
+            function renderHistory(){
+                historyEl.innerHTML = '';
+                if(historyUrls.length === 0){ historyEl.hidden = true; return; }
+                historyEl.hidden = false;
+                historyUrls.forEach((u,i)=>{
+                    const t = document.createElement('button');
+                    t.type = 'button';
+                    t.className = 'thumb';
+                    t.title = prettyBreed(u);
+                    const im = document.createElement('img');
+                    im.src = u;
+                    im.alt = prettyBreed(u);
+                    t.appendChild(im);
+                    t.addEventListener('click', ()=>{
+                        setMainImage(u, false);
+                    });
+                    historyEl.appendChild(t);
+                });
+                highlightSelectedThumb(currentImageUrl);
+            }
+
+            function highlightSelectedThumb(url){
+                const thumbs = historyEl.querySelectorAll('.thumb');
+                thumbs.forEach(tb=> tb.classList.remove('selected'));
+                if(!url) return;
+                for(const tb of thumbs){
+                    const im = tb.querySelector('img');
+                    if(im && im.src === url){ tb.classList.add('selected'); tb.scrollIntoView({behavior:'smooth', inline:'center'}); break; }
+                }
+            }
+
+            function prettyBreed(url){
+                try{
+                    const parts = url.split('/');
+                    const idx = parts.indexOf('breeds');
+                    if(idx >= 0 && parts[idx+1]){
+                        return parts[idx+1].split('-').reverse().join(' ').split(' ').map(cap).join(' ');
+                    }
+                }catch(e){/* ignore */}
+                return 'Desconocido';
+            }
+
+            function cap(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+
+            async function saveImage(){
+                if(!currentImageUrl) return;
+                saveBtn.disabled = true;
+                saveBtn.textContent = 'Preparando...';
+                try{
+                    const res = await fetch(currentImageUrl);
+                    if(!res.ok) throw new Error('No se pudo descargar la imagen');
+                    const blob = await res.blob();
+                    const ext = (blob.type && blob.type.split('/')[1]) ? blob.type.split('/')[1] : 'jpg';
+                    const filename = `perrolandia-${prettyFilename(currentImageUrl)}-${Date.now()}.${ext}`;
+                    const a = document.createElement('a');
+                    const url = URL.createObjectURL(blob);
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    setTimeout(()=> URL.revokeObjectURL(url), 15000);
+                }catch(err){
+                    console.error(err);
+                    infoEl.textContent = 'No se pudo guardar la imagen.';
+                }finally{
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = 'Guardar imagen';
+                }
+            }
+
+            function prettyFilename(url){
+                return prettyBreed(url).toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9\-]/g,'');
+            }
+
+            newBtn.addEventListener('click', fetchDog);
+            saveBtn.addEventListener('click', saveImage);
+            document.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') fetchDog(); });
+
+            // Cargar inicialmente
+            fetchDog();
+        </script>
+    </body>
+</html>
